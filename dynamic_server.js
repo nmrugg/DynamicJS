@@ -1,7 +1,7 @@
 /*jslint onevar: true, undef: true, newcap: true, nomen: true, regexp: true, plusplus: true, bitwise: true, maxerr: 50, indent: 4, white: false */
 /*global require, process, console */
 
-/// Usage: node static_server.js PORT
+/// Usage: node dynamic_server.js PORT
 
 var exec = require('child_process').exec,
     fs   = require("fs"),
