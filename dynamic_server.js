@@ -1,14 +1,14 @@
-/*jslint onevar: true, undef: true, newcap: true, nomen: true, regexp: true, plusplus: true, bitwise: true, maxerr: 50, indent: 4, white: false */
-/*global require, process, console */
+/*jslint onevar: true, undef: true, newcap: true, nomen: true, regexp: true, plusplus: true, bitwise: true, node: true, indent: 4, white: false */
+/*global console */
 
 /// Usage: node dynamic_server.js PORT
 
-var exec = require('child_process').exec,
-    fs   = require("fs"),
-    http = require("http"),
-    path = require("path"),
-    url  = require("url"),
-    util = require('util'),
+var fs    = require("fs"),
+    http  = require("http"),
+    path  = require("path"),
+    spawn = require('child_process').spawn,
+    url   = require("url"),
+    util  = require('util'),
     
     port = process.argv[2] || 8888; /// Defaults to port 8888
 
@@ -45,19 +45,35 @@ http.createServer(function (request, response)
         /// If the file is a JavaScript file, execute it and write the results.
         if (filename.slice(-3) === ".js") {
             ///NOTE: Executing a command is not secure, but right now, node always caches files that are require'd().
-            exec("node " + filename, {"MaxBuffer": 999999999}, function (error, stdout, stderr)
+            (function ()
             {
-                if (error === null) {
-                    response.writeHead(200);
-                    ///NOTE: Writing as binary caused some problems for Unicode text.  It would be nice determine the mime type.
-                    response.write(stdout);
-                } else {
+                var cmd = spawn("node", [filename]),
+                    has_written_head = false;
+                
+                cmd.stdout.on("data", function (data)
+                {
+                    if (!has_written_head) {
+                        response.writeHead(200);
+                        has_written_head = true;
+                    }
+                    response.write(data);
+                });
+                
+                cmd.stderr.on("data", function (data)
+                {
+                    if (!has_written_head) {
+                        response.writeHead(500, {"Content-Type": "text/plain"});
+                        has_written_head = true;
+                    }
                     /// Display any errors.
-                    response.writeHead(500, {"Content-Type": "text/plain"});
-                    response.write(error.message);
-                }
-                response.end();
-            });
+                    response.write(data);
+                });
+                
+                cmd.on("exit", function (code)
+                {
+                    response.end();
+                });
+            }());
         } else {
             /// Write the static file.
             fs.readFile(filename, "binary", function (err, file)
