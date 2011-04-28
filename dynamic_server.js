@@ -9,7 +9,8 @@ var fs    = require("fs"),
     url   = require("url"),
     qs    = require('querystring'),
     
-    port = process.argv[2] || 8888; /// Defaults to port 8888
+    port  = process.argv[2] || 8888, /// Defaults to port 8888
+    debug = process.argv[3] === "debug" ? true : false;
 
 /// Start the server.
 http.createServer(function (request, response)
@@ -49,8 +50,34 @@ http.createServer(function (request, response)
                 ///NOTE: Executing a command is not secure, but right now, node always caches files that are require'd().
                 (function ()
                 {
-                    var cmd = spawn("node", (typeof post_data === "undefined" ? [filename] : [filename, post_data])),
+                    var cmd,
+                        debug_cmd,
                         has_written_head = false;
+                    
+                    if (debug) {
+                        cmd = spawn("node", (typeof post_data === "undefined" ? ["--debug", "--debug-brk", filename] : ["--debug-brk", filename, post_data]));
+                        
+                        debug_cmd = spawn("node", ["/localhost/DynamicJS/node-inspector/bin/inspector.js", "--web-port=8000"]);
+                        
+                        debug_cmd.stdout.on("data", function (data)
+                        {
+                            console.log(data.toString());
+                        });
+                        
+                        debug_cmd.stderr.on("data", function (data)
+                        {
+                            console.log(data.toString());
+                        });
+                        
+                        debug_cmd.on("exit", function (code)
+                        {
+                            
+                        });
+                        
+                        
+                    } else {
+                        cmd = spawn("node", (typeof post_data === "undefined" ? [filename] : [filename, post_data]));
+                    }
                     
                     cmd.stdout.on("data", function (data)
                     {
@@ -63,12 +90,8 @@ http.createServer(function (request, response)
                     
                     cmd.stderr.on("data", function (data)
                     {
-                        if (!has_written_head) {
-                            response.writeHead(500, {"Content-Type": "text/plain"});
-                            has_written_head = true;
-                        }
-                        /// Display any errors.
-                        response.write(data);
+                        /// Display any errors in the console.
+                        console.log(data.toString());
                     });
                     
                     cmd.on("exit", function (code)
