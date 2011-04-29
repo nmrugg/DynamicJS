@@ -1,15 +1,18 @@
 /*jslint onevar: true, undef: true, newcap: true, nomen: true, regexp: true, plusplus: true, bitwise: true, node: true, indent: 4, white: false */
 
-/// Usage: node dynamic_server.js PORT
+/// Usage: node dynamic_server.js [PORT] [debug]
+/// Example: node dynamic_server.js
+/// Example: node dynamic_server.js 8080
+/// Example: node dynamic_server.js 8888 debug
 
 var fs    = require("fs"),
     http  = require("http"),
     path  = require("path"),
     spawn = require('child_process').spawn,
     url   = require("url"),
-    qs    = require('querystring'),
+    qs    = require("querystring"),
     
-    port  = process.argv[2] || 8888, /// Defaults to port 8888
+    port  = parseInt(process.argv[2], 10) || 8888, /// Defaults to port 8888
     debug = process.argv[3] === "debug" ? true : false;
 
 /// Start the server.
@@ -55,9 +58,13 @@ http.createServer(function (request, response)
                         has_written_head = false;
                     
                     if (debug) {
-                        cmd = spawn("node", (typeof post_data === "undefined" ? ["--debug", "--debug-brk", filename] : ["--debug-brk", filename, post_data]));
+                        /// Start node in debugging mode.
+                        ///NOTE: Currently, it automatically sets a break point at the beginning (That is what --debug-brk does.  Could also use --debug to not set the break point)
+                        ///TODO: Make starting with a break optional.
+                        cmd = spawn("node", (typeof post_data === "undefined" ? ["--debug-brk", filename] : ["--debug-brk", filename, post_data]));
                         
-                        debug_cmd = spawn("node", ["/localhost/DynamicJS/node-inspector/bin/inspector.js", "--web-port=8000"]);
+                        /// Start the debugger script.
+                        debug_cmd = spawn("node", [__dirname + "/node-inspector/bin/inspector.js", "--web-port=" + (port === 8888 ? "8000" : "8888")]);
                         
                         debug_cmd.stdout.on("data", function (data)
                         {
@@ -69,12 +76,7 @@ http.createServer(function (request, response)
                             console.log(data.toString());
                         });
                         
-                        debug_cmd.on("exit", function (code)
-                        {
-                            
-                        });
-                        
-                        
+                        debug_cmd.on("exit", function (code) {});
                     } else {
                         cmd = spawn("node", (typeof post_data === "undefined" ? [filename] : [filename, post_data]));
                     }
@@ -139,6 +141,6 @@ http.createServer(function (request, response)
     } else {
         request_page();
     }
-}).listen(parseInt(port, 10));
+}).listen(port);
 
 console.log("Static file server running at\n  => http://localhost:" + port + "/\nCTRL + C to shutdown");
