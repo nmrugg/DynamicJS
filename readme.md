@@ -2,16 +2,16 @@
 
 Usage: <pre>node dynamic_server.js [PORT] [debug]</pre>
 
-</pre>Examples:
+Examples:
 Start the server like normal and listen on the default port:
-$ node dynamic_server.js
+<pre>node dynamic_server.js</pre>
 
 Start the server like normal and listen on port 8080:
-$ node dynamic_server.js 8080
+<pre>node dynamic_server.js 8080</pre>
 
 Start the server in debugging mode and listen on port 8888 (the default port):
-$ node dynamic_server.js 8888 debug
-</pre>
+<pre>node dynamic_server.js 8888 debug</pre>
+
 
 NOTE:
 In order to debug, you need to use [node-inspector](http://github.com/dannycoates/node-inspector).  You can either extract the zipped copy,
