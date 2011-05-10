@@ -55,13 +55,22 @@ http.createServer(function (request, response)
                 {
                     var cmd,
                         debug_cmd,
-                        has_written_head = false;
+                        get_data,
+                        has_written_head = false,
+                        url_arr = request.url.split("?");
+                    
+                    /// Parse GET data, if any.
+                    if (url_arr.length > 1) {
+                        ///NOTE: GET data can be retrieved via the following code:
+                        ///      get_data = JSON.parse(process.argv[2]).GET;
+                        get_data = qs.parse(url_arr[1]);
+                    }
                     
                     if (debug) {
                         /// Start node in debugging mode.
                         ///NOTE: Currently, it automatically sets a break point at the beginning (That is what --debug-brk does.  Could also use --debug to not set the break point)
                         ///TODO: Make starting with a break optional.
-                        cmd = spawn("node", (typeof post_data === "undefined" ? ["--debug-brk", filename] : ["--debug-brk", filename, post_data]));
+                        cmd = spawn("node", ["--debug-brk", filename, JSON.stringify({GET: get_data, POST: post_data})]);
                         
                         /// Start the debugger script.
                         debug_cmd = spawn("node", [__dirname + "/node-inspector/bin/inspector.js", "--web-port=" + (port === 8888 ? "8000" : "8888")]);
@@ -78,7 +87,7 @@ http.createServer(function (request, response)
                         
                         debug_cmd.on("exit", function (code) {});
                     } else {
-                        cmd = spawn("node", (typeof post_data === "undefined" ? [filename] : [filename, post_data]));
+                        cmd = spawn("node", [filename, JSON.stringify({GET: get_data, POST: post_data})]);
                     }
                     
                     cmd.stdout.on("data", function (data)
@@ -134,8 +143,8 @@ http.createServer(function (request, response)
         request.on("data", function(chunk)
         {
             ///NOTE: POST data can be retrieved via the following code:
-            ///      post_data = JSON.parse(process.argv[2]);
-            request_page(JSON.stringify(qs.parse(post_data)));
+            ///      post_data = JSON.parse(process.argv[2]).POST;
+            request_page(qs.parse(post_data));
         });
         
     } else {
