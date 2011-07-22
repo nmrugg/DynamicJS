@@ -1,9 +1,6 @@
 /*jslint onevar: true, undef: true, newcap: true, nomen: true, regexp: true, plusplus: true, bitwise: true, node: true, indent: 4, white: false */
 
-/// Usage: node dynamic_server.js [PORT] [debug]
-/// Example: node dynamic_server.js
-/// Example: node dynamic_server.js 8080
-/// Example: node dynamic_server.js 8888 debug
+/// For help: node dynamic_server.js --help
 
 var fs    = require("fs"),
     http  = require("http"),
@@ -12,8 +9,69 @@ var fs    = require("fs"),
     url   = require("url"),
     qs    = require("querystring"),
     
-    port  = parseInt(process.argv[2], 10) || 8888, /// Defaults to port 8888
-    debug = process.argv[3] === "debug" ? true : false;
+    brk   = false,
+    debug = false,
+    jsext = "js",
+    php   = false,
+    port  = 8888; /// Defaults to port 8888
+
+(function ()
+{
+    var i = 2,
+        param_len = process.argv.length;
+    
+    for (; i < param_len; i += 1) {
+        if (process.argv[i] === "-debug" || process.argv[i] === "--debug") {
+            debug = true;
+        } else if (process.argv[i] === "-debug-brk" || process.argv[i] === "--debug-brk") {
+            debug = true;
+            brk   = true;
+        } else if (process.argv[i] === "--php") {
+            php = true;
+        } else if (process.argv[i].substr(0, 5) === "--js=") {
+            jsext = process.argv[i].slice(5);
+            /// Remove a leading dot.
+            if (jsext.substr(0, 1) === ".") {
+                jsext = jsext.slice(1);
+            }
+        } else if (process.argv[i] === "-help" || process.argv[i] === "--help" || process.argv[i] === "-h") {
+            console.log("Usage: node dynamic_server.js [options] [PORT]");
+            console.log("");
+            console.log("Examples:");
+            console.log("  node dynamic_server.js");
+            console.log("  node dynamic_server.js 8080");
+            console.log("  node dynamic_server.js --js=jss");
+            console.log("  node dynamic_server.js --debug");
+            console.log("  node dynamic_server.js --debug-brk --php 8080");
+            console.log("");
+            console.log("  --debug     Run in debug mode");
+            console.log("  --debug-brk Run in debug mode, and start with a break");
+            console.log("  --help, -h  This help");
+            console.log("  --js=ext    Set the file extension of JavaScript files to execute (default: js)");
+            console.log("  --php       Enable execution of .php files");
+            console.log("");
+            console.log("Latest verion can be found at https://github.com/nmrugg/DynamicJS");
+            process.exit();
+        } else if (Number(process.argv[i]) > 0) {
+            port = Number(process.argv[i]);
+        } else {
+            console.log("Warning: Unrecognized option " + process.argv[i]);
+        }
+    }
+}());
+
+process.on("uncaughtException", function(e)
+{
+    if (e.errno === 98) {
+        console.log("Error: Unable to create server because port " + port + " is already is use.");
+    } else if (e.errno === 13) {
+        console.log("Error: You do not have permission to open port " + port + ".\nTry a port above 1023 or running \"sudo !!\"");
+    } else {
+        console.log("Error: " + e.message);
+    }
+    
+    process.exit(1);
+})
 
 /// Start the server.
 http.createServer(function (request, response)
@@ -38,8 +96,8 @@ http.createServer(function (request, response)
             
             /// If the URI is a directory, try to load index.js, then index.html, then index.htm.
             if (fs.statSync(filename).isDirectory()) {
-                if (path.existsSync(filename + "/index.js")) {
-                    filename += "/index.js";
+                if (path.existsSync(filename + "/index." + jsext)) {
+                    filename += "/index." + jsext;
                 } else if (path.existsSync(filename + "/index.html")) {
                     filename += "/index.html";
                 } else {
@@ -49,7 +107,7 @@ http.createServer(function (request, response)
             
             /// The dynamic part:
             /// If the file is a JavaScript file, execute it and write the results.
-            if (filename.slice(-3) === ".js") {
+            if (filename.slice(-3) === "." + jsext) {
                 ///NOTE: Executing a command is not secure, but right now, node always caches files that are require'd().
                 (function ()
                 {
@@ -68,9 +126,7 @@ http.createServer(function (request, response)
                     
                     if (debug) {
                         /// Start node in debugging mode.
-                        ///NOTE: Currently, it automatically sets a break point at the beginning (That is what --debug-brk does.  Could also use --debug to not set the break point)
-                        ///TODO: Make starting with a break optional.
-                        cmd = spawn("node", ["--debug-brk", filename, JSON.stringify({GET: get_data, POST: post_data})]);
+                        cmd = spawn("node", ["--debug" + (brk ? "-brk" : ""), filename, JSON.stringify({GET: get_data, POST: post_data})]);
                         
                         /// Start the debugger script.
                         debug_cmd = spawn("node", [__dirname + "/node-inspector/bin/inspector.js", "--web-port=" + (port === 8888 ? "8000" : "8888")]);
