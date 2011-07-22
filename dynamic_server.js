@@ -13,6 +13,7 @@ var fs    = require("fs"),
     debug = false,
     jsext = "js",
     mime,
+    dir   = process.cwd(),
     php   = false,
     port  = 8888;
     
@@ -39,7 +40,8 @@ var fs    = require("fs"),
         } else if (process.argv[i].substr(0, 7) === "--mime=") {
             mime = process.argv[i].slice(7);
         } else if (process.argv[i] === "--help" || process.argv[i] === "-h" || process.argv[i] === "-help") {
-            console.log("Usage: node dynamic_server.js [options] [PORT]");
+            console.log("Usage: node dynamic_server.js [options] [ROOT_PATH] [PORT]");
+            console.log("  Default root is the current working directory");
             console.log("  Default port is 8888");
             console.log("");
             console.log("Examples:");
@@ -48,7 +50,7 @@ var fs    = require("fs"),
             console.log("  node dynamic_server.js --js=jss");
             console.log("  node dynamic_server.js --debug");
             console.log("  node dynamic_server.js --mime=text/html");
-            console.log("  node dynamic_server.js --debug-brk --php 8080");
+            console.log("  node dynamic_server.js --debug-brk --php /var/www/ 8080");
             console.log("");
             console.log("  --debug     Run in debug mode");
             console.log("  --debug-brk Run in debug mode, and start with a break");
@@ -61,6 +63,8 @@ var fs    = require("fs"),
             process.exit();
         } else if (Number(process.argv[i]) > 0) {
             port = Number(process.argv[i]);
+        } else if (path.existsSync(process.argv[i])) {
+            dir = path.resolve(process.argv[i]);
         } else {
             console.log("Warning: Unrecognized option " + process.argv[i]);
         }
@@ -89,7 +93,7 @@ http.createServer(function (request, response)
         uri = url.parse(request.url).pathname,
         url_arr;
     
-    filename = path.join(process.cwd(), uri);
+    filename = path.join(dir, uri);
     
     function request_page()
     {
@@ -213,16 +217,16 @@ http.createServer(function (request, response)
             post_data += chunk.toString();
         });
         
-        request.on("end ", function(chunk)
+        request.on("end", function(chunk)
         {
             ///NOTE: POST data can be retrieved via the following code:
             ///      post_data = JSON.parse(process.argv[2]).POST;
             post_data = qs.parse(post_data);
             request_page();
         });
+    } else {
+        request_page();
     }
-    request_page();
     
 }).listen(port);
 
-console.log("Static file server running at\n  => http://localhost:" + port + "/\nCTRL + C to shutdown");
