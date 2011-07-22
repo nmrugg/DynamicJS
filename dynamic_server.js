@@ -12,8 +12,10 @@ var fs    = require("fs"),
     brk   = false,
     debug = false,
     jsext = "js",
+    mime,
     php   = false,
-    port  = 8888; /// Defaults to port 8888
+    port  = 8888;
+    
 
 (function ()
 {
@@ -21,9 +23,9 @@ var fs    = require("fs"),
         param_len = process.argv.length;
     
     for (; i < param_len; i += 1) {
-        if (process.argv[i] === "-debug" || process.argv[i] === "--debug") {
+        if (process.argv[i] === "--debug") {
             debug = true;
-        } else if (process.argv[i] === "-debug-brk" || process.argv[i] === "--debug-brk") {
+        } else if (process.argv[i] === "--debug-brk") {
             debug = true;
             brk   = true;
         } else if (process.argv[i] === "--php") {
@@ -34,20 +36,25 @@ var fs    = require("fs"),
             if (jsext.substr(0, 1) === ".") {
                 jsext = jsext.slice(1);
             }
-        } else if (process.argv[i] === "-help" || process.argv[i] === "--help" || process.argv[i] === "-h") {
+        } else if (process.argv[i].substr(0, 7) === "--mime=") {
+            mime = process.argv[i].slice(7);
+        } else if (process.argv[i] === "--help" || process.argv[i] === "-h" || process.argv[i] === "-help") {
             console.log("Usage: node dynamic_server.js [options] [PORT]");
+            console.log("  Default port is 8888");
             console.log("");
             console.log("Examples:");
             console.log("  node dynamic_server.js");
             console.log("  node dynamic_server.js 8080");
             console.log("  node dynamic_server.js --js=jss");
             console.log("  node dynamic_server.js --debug");
+            console.log("  node dynamic_server.js --mime=text/html");
             console.log("  node dynamic_server.js --debug-brk --php 8080");
             console.log("");
             console.log("  --debug     Run in debug mode");
             console.log("  --debug-brk Run in debug mode, and start with a break");
             console.log("  --help, -h  This help");
             console.log("  --js=ext    Set the file extension of JavaScript files to execute (default: js)");
+            console.log("  --mime=val  Set the default mime type");
             console.log("  --php       Enable execution of .php files");
             console.log("");
             console.log("Latest verion can be found at https://github.com/nmrugg/DynamicJS");
@@ -77,12 +84,14 @@ process.on("uncaughtException", function(e)
 http.createServer(function (request, response)
 {
     var filename,
-        post_data = "",
-        uri = url.parse(request.url).pathname;
+        get_data,
+        post_data,
+        uri = url.parse(request.url).pathname,
+        url_arr;
     
     filename = path.join(process.cwd(), uri);
     
-    function request_page(post_data)
+    function request_page()
     {
         path.exists(filename, function (exists)
         {
@@ -105,51 +114,48 @@ http.createServer(function (request, response)
                 }
             }
             
+            
             /// The dynamic part:
             /// If the file is a JavaScript file, execute it and write the results.
-            if (filename.slice(-3) === "." + jsext) {
+            if (filename.slice(-3) === "." + jsext || (php && filename.slice(-4) === ".php")) {
                 ///NOTE: Executing a command is not secure, but right now, node always caches files that are require'd().
                 (function ()
                 {
                     var cmd,
                         debug_cmd,
-                        get_data,
-                        has_written_head = false,
-                        url_arr = request.url.split("?");
+                        has_written_head = false;
                     
-                    /// Parse GET data, if any.
-                    if (url_arr.length > 1) {
-                        ///NOTE: GET data can be retrieved via the following code:
-                        ///      get_data = JSON.parse(process.argv[2]).GET;
-                        get_data = qs.parse(url_arr[1]);
-                    }
-                    
-                    if (debug) {
-                        /// Start node in debugging mode.
-                        cmd = spawn("node", ["--debug" + (brk ? "-brk" : ""), filename, JSON.stringify({GET: get_data, POST: post_data})]);
-                        
-                        /// Start the debugger script.
-                        debug_cmd = spawn("node", [__dirname + "/node-inspector/bin/inspector.js", "--web-port=" + (port === 8888 ? "8000" : "8888")]);
-                        
-                        debug_cmd.stdout.on("data", function (data)
-                        {
-                            console.log(data.toString());
-                        });
-                        
-                        debug_cmd.stderr.on("data", function (data)
-                        {
-                            console.log(data.toString());
-                        });
-                        
-                        debug_cmd.on("exit", function (code) {});
+                    if (filename.slice(-4) === ".php") {
+                        console.log([filename, JSON.stringify({GET: get_data, POST: post_data})]);
+                        cmd = spawn("php", [filename, JSON.stringify({GET: get_data, POST: post_data})]);
                     } else {
-                        cmd = spawn("node", [filename, JSON.stringify({GET: get_data, POST: post_data})]);
+                        if (debug) {
+                            /// Start node in debugging mode.
+                            cmd = spawn("node", ["--debug" + (brk ? "-brk" : ""), filename, JSON.stringify({GET: get_data, POST: post_data})]);
+                            
+                            /// Start the debugger script.
+                            debug_cmd = spawn("node", [__dirname + "/node-inspector/bin/inspector.js", "--web-port=" + (port === 8888 ? "8000" : "8888")]);
+                            
+                            debug_cmd.stdout.on("data", function (data)
+                            {
+                                console.log(data.toString());
+                            });
+                            
+                            debug_cmd.stderr.on("data", function (data)
+                            {
+                                console.log(data.toString());
+                            });
+                            
+                            debug_cmd.on("exit", function (code) {});
+                        } else {
+                            cmd = spawn("node", [filename, JSON.stringify({GET: get_data, POST: post_data})]);
+                        }
                     }
                     
                     cmd.stdout.on("data", function (data)
                     {
                         if (!has_written_head) {
-                            response.writeHead(200);
+                            response.writeHead(200, (typeof mime !== "undefined" ? {"Content-Type": mime} : {}));
                             has_written_head = true;
                         }
                         response.write(data);
@@ -187,8 +193,19 @@ http.createServer(function (request, response)
         });
     }
     
+    
+    url_arr = request.url.split("?");
+    /// Parse GET data, if any.
+    if (url_arr.length > 1) {
+        ///NOTE: GET data can be retrieved via the following code:
+        ///      get_data = JSON.parse(process.argv[2]).GET;
+        get_data = qs.parse(url_arr[1]);
+    }
+    
     /// Is there POST data?
     if (request.method === "POST") {
+    
+        post_data = "";
         
         request.on("data", function(chunk)
         {
@@ -196,16 +213,16 @@ http.createServer(function (request, response)
             post_data += chunk.toString();
         });
         
-        request.on("data", function(chunk)
+        request.on("end ", function(chunk)
         {
             ///NOTE: POST data can be retrieved via the following code:
             ///      post_data = JSON.parse(process.argv[2]).POST;
-            request_page(qs.parse(post_data));
+            post_data = qs.parse(post_data);
+            request_page();
         });
-        
-    } else {
-        request_page();
     }
+    request_page();
+    
 }).listen(port);
 
 console.log("Static file server running at\n  => http://localhost:" + port + "/\nCTRL + C to shutdown");
