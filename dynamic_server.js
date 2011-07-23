@@ -66,7 +66,7 @@ var fs    = require("fs"),
         } else if (path.existsSync(process.argv[i])) {
             dir = path.resolve(process.argv[i]);
         } else {
-            console.log("Warning: Unrecognized option " + process.argv[i]);
+            console.log("Warning: Unrecognized option '" + process.argv[i] + "'. See --help for acceptable options.");
         }
     }
 }());
@@ -93,12 +93,13 @@ http.createServer(function (request, response)
         uri = url.parse(request.url).pathname,
         url_arr;
     
-    filename = path.join(dir, uri);
+    filename = path.join(dir, qs.unescape(uri));
     
     function request_page()
     {
         path.exists(filename, function (exists)
         {
+            console.log(filename);
             /// If the URI does not exist, display a 404 error.
             if (!exists) {
                 response.writeHead(404, {"Content-Type": "text/plain"});
@@ -129,13 +130,13 @@ http.createServer(function (request, response)
                         debug_cmd,
                         has_written_head = false;
                     
-                    if (filename.slice(-4) === ".php") {
-                        console.log([filename, JSON.stringify({GET: get_data, POST: post_data})]);
-                        cmd = spawn("php", [filename, JSON.stringify({GET: get_data, POST: post_data})]);
+                    if (php && filename.slice(-4) === ".php") {
+                        /// Send any GET or POST data to the PHP file by executing some code first and then include()'ing the file.
+                        cmd = spawn("php", ["-r", "$TMPVAR = json_decode($argv[1], true); $_GET = (isset($TMPVAR[\"GET\"]) ? $TMPVAR[\"GET\"] : array()); $_POST = (isset($TMPVAR[\"POST\"]) ? $TMPVAR[\"POST\"] : array()); $_REQUEST = array_merge($_GET, $_POST); unset($TMPVAR); include(\"" + filename.replace(/"/g, "\\\"") + "\");", JSON.stringify({GET: get_data, POST: post_data})]);
                     } else {
                         if (debug) {
                             /// Start node in debugging mode.
-                            cmd = spawn("node", ["--debug" + (brk ? "-brk" : ""), filename, JSON.stringify({GET: get_data, POST: post_data})]);
+                            cmd = spawn("node", ["--debug" + (brk ? "-brk" : ""), filename, JSON.stringify([get_data, post_data])]);
                             
                             /// Start the debugger script.
                             debug_cmd = spawn("node", [__dirname + "/node-inspector/bin/inspector.js", "--web-port=" + (port === 8888 ? "8000" : "8888")]);
