@@ -1,17 +1,24 @@
-[DynamicJS](https://github.com/nmrugg/DynamicJS): A simple Node HTTP server that dynamically executes JavaScript
+[DynamicJS](https://github.com/nmrugg/DynamicJS): A simple Node HTTP server that dynamically executes JavaScript and even PHP scripts.
 
-Usage: <pre>node dynamic_server.js [PORT] [debug]</pre>
+<pre>Usage: node dynamic_server.js [options] [ROOT_PATH] [PORT]
+  Default root is the current working directory
+  Default port is 8888
 
 Examples:
-Start the server like normal and listen on the default port:
-<pre>node dynamic_server.js</pre>
+  node dynamic_server.js
+  node dynamic_server.js 8080
+  node dynamic_server.js --js=jss
+  node dynamic_server.js --debug
+  node dynamic_server.js --mime=text/html
+  node dynamic_server.js --debug-brk --php /var/www/ 8080
 
-Start the server like normal and listen on port 8080:
-<pre>node dynamic_server.js 8080</pre>
-
-Start the server in debugging mode and listen on port 8888 (the default port):
-<pre>node dynamic_server.js 8888 debug</pre>
-
+  --debug     Run in debug mode
+  --debug-brk Run in debug mode, and start with a break
+  --help, -h  This help
+  --js=ext    Set the file extension of JavaScript files to execute (default: js)
+  --mime=val  Set the default mime type
+  --php       Enable execution of .php files
+</pre>
 
 NOTE:
 In order to debug, you need to use [node-inspector](http://github.com/dannycoates/node-inspector).  You can either extract the zipped copy,
