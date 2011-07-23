@@ -99,7 +99,6 @@ http.createServer(function (request, response)
     {
         path.exists(filename, function (exists)
         {
-            console.log(filename);
             /// If the URI does not exist, display a 404 error.
             if (!exists) {
                 response.writeHead(404, {"Content-Type": "text/plain"});
@@ -114,6 +113,8 @@ http.createServer(function (request, response)
                     filename += "/index." + jsext;
                 } else if (path.existsSync(filename + "/index.html")) {
                     filename += "/index.html";
+                } else if (php && path.existsSync(filename + "/index.php")) {
+                    filename += "/index.php";
                 } else {
                     filename += "/index.htm";
                 }
