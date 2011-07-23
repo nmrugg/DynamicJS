@@ -16,8 +16,8 @@ var fs    = require("fs"),
     dir   = process.cwd(),
     php   = false,
     port  = 8888;
-    
 
+/// Get options and settings.
 (function ()
 {
     var i = 2,
@@ -120,10 +120,9 @@ http.createServer(function (request, response)
                 }
             }
             
-            
             /// The dynamic part:
             /// If the file is a JavaScript file, execute it and write the results.
-            if (filename.slice(-3) === "." + jsext || (php && filename.slice(-4) === ".php")) {
+            if (filename.slice(-jsext.length - 1) === "." + jsext || (php && filename.slice(-4) === ".php")) {
                 ///NOTE: Executing a command is not secure, but right now, node always caches files that are require'd().
                 (function ()
                 {
@@ -199,7 +198,6 @@ http.createServer(function (request, response)
         });
     }
     
-    
     url_arr = request.url.split("?");
     /// Parse GET data, if any.
     if (url_arr.length > 1) {
@@ -231,4 +229,3 @@ http.createServer(function (request, response)
     }
     
 }).listen(port);
-
