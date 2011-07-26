@@ -1,6 +1,6 @@
 /*jslint onevar: true, undef: true, newcap: true, nomen: true, regexp: true, plusplus: true, bitwise: true, node: true, indent: 4, white: false */
 
-/// For help: node dynamic_server.js --help
+/// For help: node server.js --help
 
 var fs    = require("fs"),
     http  = require("http"),
@@ -40,17 +40,17 @@ var fs    = require("fs"),
         } else if (process.argv[i].substr(0, 7) === "--mime=") {
             mime = process.argv[i].slice(7);
         } else if (process.argv[i] === "--help" || process.argv[i] === "-h" || process.argv[i] === "-help") {
-            console.log("Usage: node dynamic_server.js [options] [ROOT_PATH] [PORT]");
+            console.log("Usage: node server.js [options] [ROOT_PATH] [PORT]");
             console.log("  Default root is the current working directory");
             console.log("  Default port is 8888");
             console.log("");
             console.log("Examples:");
-            console.log("  node dynamic_server.js");
-            console.log("  node dynamic_server.js 8080");
-            console.log("  node dynamic_server.js --js=jss");
-            console.log("  node dynamic_server.js --debug");
-            console.log("  node dynamic_server.js --mime=text/html");
-            console.log("  node dynamic_server.js --debug-brk --php /var/www/ 8080");
+            console.log("  node server.js");
+            console.log("  node server.js 8080");
+            console.log("  node server.js --js=jss");
+            console.log("  node server.js --debug");
+            console.log("  node server.js --mime=text/html");
+            console.log("  node server.js --debug-brk --php /var/www/ 8080");
             console.log("");
             console.log("  --debug     Run in debug mode");
             console.log("  --debug-brk Run in debug mode, and start with a break");
