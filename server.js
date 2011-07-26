@@ -9,13 +9,14 @@ var fs    = require("fs"),
     url   = require("url"),
     qs    = require("querystring"),
     
-    brk   = false,
-    debug = false,
-    jsext = "js",
+    brk    = false,
+    debug  = false,
+    jsext  = "js",
     mime,
-    dir   = process.cwd(),
-    php   = false,
-    port  = 8888;
+    dir    = process.cwd(),
+    php    = false,
+    port   = 8888,
+    static = false;
 
 /// Get options and settings.
 (function ()
@@ -31,6 +32,8 @@ var fs    = require("fs"),
             brk   = true;
         } else if (process.argv[i] === "--php") {
             php = true;
+        } else if (process.argv[i] === "--static") {
+            static = true;
         } else if (process.argv[i].substr(0, 5) === "--js=") {
             jsext = process.argv[i].slice(5);
             /// Remove a leading dot.
@@ -49,6 +52,7 @@ var fs    = require("fs"),
             console.log("  node server.js 8080");
             console.log("  node server.js --js=jss");
             console.log("  node server.js --debug");
+            console.log("  node server.js --static /var/www/");
             console.log("  node server.js --mime=text/html");
             console.log("  node server.js --debug-brk --php /var/www/ 8080");
             console.log("");
@@ -58,6 +62,7 @@ var fs    = require("fs"),
             console.log("  --js=ext    Set the file extension of JavaScript files to execute (default: js)");
             console.log("  --mime=val  Set the default mime type");
             console.log("  --php       Enable execution of .php files");
+            console.log("  --static    Prevents the execution of JS and PHP scripts");
             console.log("");
             console.log("Latest verion can be found at https://github.com/nmrugg/DynamicJS");
             process.exit();
@@ -122,7 +127,7 @@ http.createServer(function (request, response)
             
             /// The dynamic part:
             /// If the file is a JavaScript file, execute it and write the results.
-            if (filename.slice(-jsext.length - 1) === "." + jsext || (php && filename.slice(-4) === ".php")) {
+            if (!static && (filename.slice(-jsext.length - 1) === "." + jsext || (php && filename.slice(-4) === ".php"))) {
                 ///NOTE: Executing a command is not secure, but right now, node always caches files that are require'd().
                 (function ()
                 {
