@@ -142,7 +142,7 @@ http.createServer(function (request, response)
                     
                     if (php && filename.slice(-4) === ".php") {
                         /// Send any GET or POST data to the PHP file by executing some code first and then include()'ing the file.
-                        cmd = spawn("php", ["-r", "$TMPVAR = json_decode($argv[1], true); $_GET = (isset($TMPVAR[\"GET\"]) ? $TMPVAR[\"GET\"] : array()); $_POST = (isset($TMPVAR[\"POST\"]) ? $TMPVAR[\"POST\"] : array()); $_REQUEST = array_merge($_GET, $_POST); unset($TMPVAR); include(\"" + filename.replace(/"/g, "\\\"") + "\");", JSON.stringify({GET: get_data, POST: post_data})]);
+                        cmd = spawn("php", ["-r", "$TMPVAR = json_decode($argv[1], true); $_GET = (isset($TMPVAR[\"GET\"]) ? $TMPVAR[\"GET\"] : array()); $_POST = (isset($TMPVAR[\"POST\"]) ? $TMPVAR[\"POST\"] : array()); $_REQUEST = array_merge($_GET, $_POST); unset($TMPVAR); chdir('" + path.dirname(filename).replace(/[\\']/g, "\\$&") + "'); include('" + filename.replace(/[\\']/g, "\\$&") + "');", JSON.stringify({GET: get_data, POST: post_data})]);
                     } else {
                         if (debug) {
                             /// Start node in debugging mode.
