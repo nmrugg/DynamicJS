@@ -11,13 +11,12 @@ var fs    = require("fs"),
     
     brk      = false,
     debug    = false,
-    feedback = false,
-    jsext    = "js",
-    mime,
     dir      = process.cwd(),
+    feedback = false,
+    jsext    = false,
+    mime,
     php      = false,
-    port     = 8888,
-    static   = false;
+    port     = 8888;
 
 /// Get options and settings.
 (function ()
@@ -35,13 +34,15 @@ var fs    = require("fs"),
             feedback = true;
         } else if (process.argv[i] === "--php") {
             php = true;
-        } else if (process.argv[i] === "--static") {
-            static = true;
-        } else if (process.argv[i].substr(0, 5) === "--js=") {
-            jsext = process.argv[i].slice(5);
-            /// Remove a leading dot.
-            if (jsext.substr(0, 1) === ".") {
-                jsext = jsext.slice(1);
+        } else if (process.argv[i].substr(0, 4) === "--js") {
+            if (process.argv[i].length > 4 && process.argv[i].substr(4, 1) === "=") {
+                jsext = process.argv[i].slice(5);
+                /// Add a leading dot.
+                if (jsext !== "" && jsext.substr(0, 1) !== ".") {
+                    jsext = "." + jsext;
+                }
+            } else {
+                jsext = ".js";
             }
         } else if (process.argv[i].substr(0, 7) === "--mime=") {
             mime = process.argv[i].slice(7);
@@ -53,21 +54,20 @@ var fs    = require("fs"),
             console.log("Examples:");
             console.log("  node server.js");
             console.log("  node server.js 8080");
-            console.log("  node server.js --js=jss");
             console.log("  node server.js --debug");
             console.log("  node server.js --feedback");
-            console.log("  node server.js --static /var/www/");
+            console.log("  node server.js --js=jss");
+            console.log("  node server.js --js /var/www/");
             console.log("  node server.js --mime=text/html");
-            console.log("  node server.js --debug-brk --php /var/www/ 8080");
+            console.log("  node server.js --php --debug-brk /var/www/ 8080");
             console.log("");
             console.log("  --debug     Run in debug mode");
             console.log("  --debug-brk Run in debug mode, and start with a break");
             console.log("  --feedback  Output node messages to stdout");
             console.log("  --help, -h  This help");
-            console.log("  --js=ext    Set the file extension of JavaScript files to execute (default: js)");
+            console.log("  --js[=ext]  Enable JS and optionally set the file extension of JavaScript files to execute (default: js)");
             console.log("  --mime=val  Set the default mime type");
             console.log("  --php       Enable execution of .php files");
-            console.log("  --static    Prevents the execution of JS and PHP scripts");
             console.log("");
             console.log("Latest verion can be found at https://github.com/nmrugg/DynamicJS");
             process.exit();
@@ -76,7 +76,7 @@ var fs    = require("fs"),
         } else if (path.existsSync(process.argv[i])) {
             dir = path.resolve(process.argv[i]);
         } else {
-            console.log("Warning: Unrecognized option '" + process.argv[i] + "'. See --help for acceptable options.");
+            console.log("Warning: Unrecognized option '" + process.argv[i] + "'. See --help for acceptable options. Continuing blissfully.");
         }
     }
 }());
@@ -119,8 +119,8 @@ http.createServer(function (request, response)
             
             /// If the URI is a directory, try to load index.js, then index.html, then index.htm.
             if (fs.statSync(filename).isDirectory()) {
-                if (path.existsSync(filename + "/index." + jsext)) {
-                    filename += "/index." + jsext;
+                if (path.existsSync(filename + "/index" + jsext)) {
+                    filename += "/index" + jsext;
                 } else if (path.existsSync(filename + "/index.html")) {
                     filename += "/index.html";
                 } else if (php && path.existsSync(filename + "/index.php")) {
@@ -129,10 +129,10 @@ http.createServer(function (request, response)
                     filename += "/index.htm";
                 }
             }
-            
             /// The dynamic part:
             /// If the file is a JavaScript file, execute it and write the results.
-            if (!static && (filename.slice(-jsext.length - 1) === "." + jsext || (php && filename.slice(-4) === ".php"))) {
+            if ((jsext !== false && path.extname(filename) === jsext) || (php && path.extname(filename) === ".php")) {
+            
                 ///NOTE: Executing a command is not secure, but right now, node always caches files that are require'd().
                 (function ()
                 {
@@ -140,10 +140,10 @@ http.createServer(function (request, response)
                         debug_cmd,
                         has_written_head = false;
                     
-                    if (php && filename.slice(-4) === ".php") {
+                    if (php && path.extname(filename) === ".php") {
                         /// Send any GET or POST data to the PHP file by executing some code first and then include()'ing the file.
                         cmd = spawn("php", ["-r", "$TMPVAR = json_decode($argv[1], true); $_GET = (isset($TMPVAR[\"GET\"]) ? $TMPVAR[\"GET\"] : array()); $_POST = (isset($TMPVAR[\"POST\"]) ? $TMPVAR[\"POST\"] : array()); $_REQUEST = array_merge($_GET, $_POST); unset($TMPVAR); chdir('" + path.dirname(filename).replace(/[\\']/g, "\\$&") + "'); include('" + filename.replace(/[\\']/g, "\\$&") + "');", JSON.stringify({GET: get_data, POST: post_data})]);
-                    } else {
+                    } else if (jsext !== false) {
                         if (debug) {
                             /// Start node in debugging mode.
                             cmd = spawn("node", ["--debug" + (brk ? "-brk" : ""), filename, JSON.stringify([get_data, post_data])]);
