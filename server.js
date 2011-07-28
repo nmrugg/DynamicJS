@@ -9,14 +9,15 @@ var fs    = require("fs"),
     url   = require("url"),
     qs    = require("querystring"),
     
-    brk    = false,
-    debug  = false,
-    jsext  = "js",
+    brk      = false,
+    debug    = false,
+    feedback = false,
+    jsext    = "js",
     mime,
-    dir    = process.cwd(),
-    php    = false,
-    port   = 8888,
-    static = false;
+    dir      = process.cwd(),
+    php      = false,
+    port     = 8888,
+    static   = false;
 
 /// Get options and settings.
 (function ()
@@ -30,6 +31,8 @@ var fs    = require("fs"),
         } else if (process.argv[i] === "--debug-brk") {
             debug = true;
             brk   = true;
+        } else if (process.argv[i] === "--feedback") {
+            feedback = true;
         } else if (process.argv[i] === "--php") {
             php = true;
         } else if (process.argv[i] === "--static") {
@@ -52,12 +55,14 @@ var fs    = require("fs"),
             console.log("  node server.js 8080");
             console.log("  node server.js --js=jss");
             console.log("  node server.js --debug");
+            console.log("  node server.js --feedback");
             console.log("  node server.js --static /var/www/");
             console.log("  node server.js --mime=text/html");
             console.log("  node server.js --debug-brk --php /var/www/ 8080");
             console.log("");
             console.log("  --debug     Run in debug mode");
             console.log("  --debug-brk Run in debug mode, and start with a break");
+            console.log("  --feedback  Output node messages to stdout");
             console.log("  --help, -h  This help");
             console.log("  --js=ext    Set the file extension of JavaScript files to execute (default: js)");
             console.log("  --mime=val  Set the default mime type");
@@ -148,12 +153,16 @@ http.createServer(function (request, response)
                             
                             debug_cmd.stdout.on("data", function (data)
                             {
-                                console.log(data.toString());
+                                if (feedback) {
+                                    console.log(data.toString());
+                                }
                             });
                             
                             debug_cmd.stderr.on("data", function (data)
                             {
-                                console.log(data.toString());
+                                if (feedback) {
+                                    console.log(data.toString());
+                                }
                             });
                             
                             debug_cmd.on("exit", function (code) {});
@@ -174,7 +183,9 @@ http.createServer(function (request, response)
                     cmd.stderr.on("data", function (data)
                     {
                         /// Display any errors in the console.
-                        console.log(data.toString());
+                        if (feedback) {
+                            console.log(data.toString());
+                        }
                     });
                     
                     cmd.on("exit", function (code)
