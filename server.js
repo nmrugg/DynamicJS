@@ -1,4 +1,6 @@
-/*jslint onevar: true, undef: true, newcap: true, nomen: true, regexp: true, plusplus: true, bitwise: true, node: true, indent: 4, white: false */
+/*jslint node: true, nomen: true, white: true, indent: 4 */
+
+"use strict";
 
 /// For help: node server.js --help
 
@@ -92,7 +94,7 @@ process.on("uncaughtException", function(e)
     }
     
     process.exit(1);
-})
+});
 
 /// Start the server.
 http.createServer(function (request, response)
@@ -100,9 +102,10 @@ http.createServer(function (request, response)
     var filename,
         get_data,
         post_data,
-        uri = url.parse(request.url).pathname,
-        url_arr;
+        uri,
+        url_parsed = url.parse(request.url);
     
+    uri = url_parsed.pathname;
     filename = path.join(dir, qs.unescape(uri));
     
     function request_page()
@@ -117,16 +120,23 @@ http.createServer(function (request, response)
                 return;
             }
             
-            /// If the URI is a directory, try to load index.js, then index.html, then index.htm.
+            /// If the URI is a directory, try to load index pages.
             if (fs.statSync(filename).isDirectory()) {
-                if (path.existsSync(filename + "/index" + jsext)) {
-                    filename += "/index" + jsext;
-                } else if (path.existsSync(filename + "/index.html")) {
-                    filename += "/index.html";
-                } else if (php && path.existsSync(filename + "/index.php")) {
-                    filename += "/index.php";
+                /// If the URL does not end in a slash, we need to add it and tell the browser to try again.
+                if (uri.slice(-1) !== "/") {
+                    response.writeHead(301, {"Location":uri + "/" + url_parsed.search});
+                    response.end();
+                    return;
                 } else {
-                    filename += "/index.htm";
+                    if (jsext !== false && path.existsSync(filename + "/index" + jsext)) {
+                        filename += "/index" + jsext;
+                    } else if (php && path.existsSync(filename + "/index.php")) {
+                        filename += "/index.php";
+                    } else if (path.existsSync(filename + "/index.html")) {
+                        filename += "/index.html";
+                    } else {
+                        filename += "/index.htm";
+                    }
                 }
             }
             /// The dynamic part:
@@ -214,12 +224,12 @@ http.createServer(function (request, response)
         });
     }
     
-    url_arr = request.url.split("?");
-    /// Parse GET data, if any.
-    if (url_arr.length > 1) {
-        ///NOTE: GET data can be retrieved via the following code:
+    
+    /// Is there GET data?
+    if (url_parsed.query !== "") {
+        ///NOTE: GET data can be retrieved in node.js scripts via the following code:
         ///      get_data = JSON.parse(process.argv[2]).GET;
-        get_data = qs.parse(url_arr[1]);
+        get_data = qs.parse(url_parsed.query);
     }
     
     /// Is there POST data?
@@ -235,7 +245,7 @@ http.createServer(function (request, response)
         
         request.on("end", function(chunk)
         {
-            ///NOTE: POST data can be retrieved via the following code:
+            ///NOTE: POST data can be retrieved in node.js scripts via the following code:
             ///      post_data = JSON.parse(process.argv[2]).POST;
             post_data = qs.parse(post_data);
             request_page();
