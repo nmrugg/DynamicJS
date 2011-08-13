@@ -156,7 +156,8 @@ http.createServer(function (request, response)
                     } else if (jsext !== false) {
                         if (debug) {
                             /// Start node in debugging mode.
-                            cmd = spawn("node", ["--debug" + (brk ? "-brk" : ""), filename, JSON.stringify([get_data, post_data])]);
+                            ///NOTE: In some (or all) versions of node.js (0.5.3-), --debug-brk will not work with symlinks; therefor, we must find the real path via realpathSync().
+                            cmd = spawn("node", ["--debug" + (brk ? "-brk" : ""), fs.realpathSync(filename), JSON.stringify([get_data, post_data])]);
                             
                             /// Start the debugger script.
                             debug_cmd = spawn("node", [__dirname + "/node-inspector/bin/inspector.js", "--web-port=" + (port === 8888 ? "8000" : "8888")]);
