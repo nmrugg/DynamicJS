@@ -13,6 +13,7 @@ var fs    = require("fs"),
     
     brk      = false,
     debug    = false,
+    debug_port,
     dir      = process.cwd(),
     feedback = false,
     jsext    = false,
@@ -27,8 +28,38 @@ var fs    = require("fs"),
         param_len = process.argv.length;
     
     for (; i < param_len; i += 1) {
-        if (process.argv[i] === "--debug") {
-            debug = true;
+        if (process.argv[i].substr(0, 11) === "--debug-brk") {
+            if (process.argv[i].length > 11) {
+                if (process.argv[i].substr(11, 1) === "=") {
+                    debug = true;
+                    brk   = true;
+                    if (process.argv[i].slice(12) > 0) {
+                        debug_port = process.argv[i].slice(12);
+                    } else {
+                        console.log("Bad debugging port.");
+                    }
+                } else {
+                    console.log("Warning: Unrecognized option '" + process.argv[i] + "'. Did you mean --debug-brk?");
+                }
+            } else {
+                debug = true;
+                brk   = true;
+            }
+        } else if (process.argv[i].substr(0, 7) === "--debug") {
+            if (process.argv[i].length > 7) {
+                if (process.argv[i].substr(7, 1) === "=") {
+                    debug = true;
+                    if (process.argv[i].slice(8) > 0) {
+                        debug_port = process.argv[i].slice(8);
+                    } else {
+                        console.log("Bad debugging port.");
+                    }
+                } else {
+                    console.log("Warning: Unrecognized option '" + process.argv[i] + "'. Did you mean --debug?");
+                }
+            } else {
+                debug = true;
+            }
         } else if (process.argv[i] === "--debug-brk") {
             debug = true;
             brk   = true;
@@ -61,15 +92,15 @@ var fs    = require("fs"),
             console.log("  node server.js --js=jss");
             console.log("  node server.js --js /var/www/");
             console.log("  node server.js --mime=text/html");
-            console.log("  node server.js --php --debug-brk /var/www/ 8080");
+            console.log("  node server.js --php --debug-brk=8000 /var/www/ 8080");
             console.log("");
-            console.log("  --debug     Run in debug mode");
-            console.log("  --debug-brk Run in debug mode, and start with a break");
-            console.log("  --feedback  Output node messages to stdout");
-            console.log("  --help, -h  This help");
-            console.log("  --js[=ext]  Enable JS and optionally set the file extension of JavaScript files to execute (default: js)");
-            console.log("  --mime=val  Set the default mime type");
-            console.log("  --php       Enable execution of .php files");
+            console.log("  --debug[=port]     Run in debug mode, and optionally set the debugging port");
+            console.log("  --debug-brk[=port] Run in debug mode, start with a break, and optionally set the debugging port");
+            console.log("  --feedback         Output node messages to stdout");
+            console.log("  --help, -h         This help");
+            console.log("  --js[=ext]         Enable JS execution and optionally set the file extension to execute (default: js)");
+            console.log("  --mime=val         Set the default mime type");
+            console.log("  --php              Enable execution of .php files");
             console.log("");
             console.log("Latest verion can be found at https://github.com/nmrugg/DynamicJS");
             process.exit();
@@ -156,11 +187,11 @@ http.createServer(function (request, response)
                     } else if (jsext !== false) {
                         if (debug) {
                             /// Start node in debugging mode.
-                            ///NOTE: In some (or all) versions of node.js (0.5.3-), --debug-brk will not work with symlinks; therefor, we must find the real path via realpathSync().
+                            ///NOTE: In some (or all) versions of node.js (0.5.4-), --debug-brk will not work with symlinks; therefor, we must find the real path via realpathSync().
                             cmd = spawn("node", ["--debug" + (brk ? "-brk" : ""), fs.realpathSync(filename), JSON.stringify([get_data, post_data])]);
                             
                             /// Start the debugger script.
-                            debug_cmd = spawn("node", [__dirname + "/node-inspector/bin/inspector.js", "--web-port=" + (port === 8888 ? "8000" : "8888")]);
+                            debug_cmd = spawn("node", [__dirname + "/node-inspector/bin/inspector.js", "--web-port=" + (debug_port ? debug_port : (port === 8888 ? "8000" : "8888"))]);
                             
                             debug_cmd.stdout.on("data", function (data)
                             {
