@@ -26,7 +26,7 @@ Examples:
 
 NOTE:
 In order to debug, you need to use [node-inspector](http://github.com/dannycoates/node-inspector).  You can either extract the zipped copy,
-or better yet, grab the latest code from the git repository.  When running in debugging mode, a second node process is started.  Currently,
+or better yet, grab the latest code from the git repository.  When running in debugging mode, a second Node process is started.  Currently,
 you must access the debugger in a WebKit-based browser, like Chrome or Safari.
 
 Currently, only GET and POST data is sent to the scripts (both JavaScript and PHP).  Cookie data is not yet sent.

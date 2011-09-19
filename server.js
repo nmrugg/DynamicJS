@@ -7,7 +7,7 @@
 var fs    = require("fs"),
     http  = require("http"),
     path  = require("path"),
-    spawn = require('child_process').spawn,
+    proc  = require('child_process'),
     url   = require("url"),
     qs    = require("querystring"),
     
@@ -19,6 +19,7 @@ var fs    = require("fs"),
     jsext    = false,
     mime,
     php      = false,
+    php_cmd,
     port     = 8888;
 
 /// Get options and settings.
@@ -67,6 +68,7 @@ var fs    = require("fs"),
             feedback = true;
         } else if (process.argv[i] === "--php") {
             php = true;
+            php_cmd = "php";
         } else if (process.argv[i].substr(0, 4) === "--js") {
             if (process.argv[i].length > 4 && process.argv[i].substr(4, 1) === "=") {
                 jsext = process.argv[i].slice(5);
@@ -114,6 +116,15 @@ var fs    = require("fs"),
     }
 }());
 
+/// php-cgi cannot use the -r option
+if (php) {
+    proc.exec("which php-cgi", function (err, stdout, stderr) {
+        if (stdout !== "") {
+            php_cmd = "php-cgi";
+        }
+    });
+}
+
 process.on("uncaughtException", function(e)
 {
     if (e.errno === 98) {
@@ -133,6 +144,7 @@ http.createServer(function (request, response)
     var filename,
         get_data,
         post_data,
+        cookies,
         uri,
         url_parsed = url.parse(request.url);
     
@@ -179,19 +191,20 @@ http.createServer(function (request, response)
                 {
                     var cmd,
                         debug_cmd,
-                        has_written_head = false;
+                        waiting_for_headers = true;
                     
                     if (php && path.extname(filename) === ".php") {
                         /// Send any GET or POST data to the PHP file by executing some code first and then include()'ing the file.
-                        cmd = spawn("php", ["-r", "$TMPVAR = json_decode($argv[1], true); $_GET = (isset($TMPVAR[\"GET\"]) ? $TMPVAR[\"GET\"] : array()); $_POST = (isset($TMPVAR[\"POST\"]) ? $TMPVAR[\"POST\"] : array()); $_REQUEST = array_merge($_GET, $_POST); unset($TMPVAR); chdir('" + path.dirname(filename).replace(/[\\']/g, "\\$&") + "'); include('" + filename.replace(/[\\']/g, "\\$&") + "');", JSON.stringify({GET: get_data, POST: post_data})]);
+                        //cmd = proc.spawn(php_cmd, ["-r", "$TMPVAR = json_decode($argv[1], true); $_GET = (isset($TMPVAR[\"GET\"]) ? $TMPVAR[\"GET\"] : array()); $_POST = (isset($TMPVAR[\"POST\"]) ? $TMPVAR[\"POST\"] : array()); $_COOKIE = (isset($TMPVAR[\"COOKIE\"]) ? $TMPVAR[\"COOKIE\"] : array()); $_REQUEST = array_merge($_GET, $_POST, $_COOKIE); unset($TMPVAR); chdir('" + path.dirname(filename).replace(/[\\']/g, "\\$&") + "'); include('" + filename.replace(/[\\']/g, "\\$&") + "');", JSON.stringify({GET: get_data, POST: post_data, COOKIE: cookies})]);
+                        cmd = proc.spawn(php_cmd, [process.cwd() + "/run_php.php", "dir=" + path.dirname(filename).replace(/[\\']/g, "\\$&"), "file=" + filename.replace(/[\\']/g, "\\$&"), "data=" + JSON.stringify({GET: get_data, POST: post_data, COOKIE: cookies})]);
                     } else if (jsext !== false) {
                         if (debug) {
                             /// Start node in debugging mode.
                             ///NOTE: In some (or all) versions of node.js (0.5.4-), --debug-brk will not work with symlinks; therefor, we must find the real path via realpathSync().
-                            cmd = spawn("node", ["--debug" + (brk ? "-brk" : ""), fs.realpathSync(filename), JSON.stringify([get_data, post_data])]);
+                            cmd = proc.spawn("node", ["--debug" + (brk ? "-brk" : ""), fs.realpathSync(filename), JSON.stringify([get_data, post_data])]);
                             
                             /// Start the debugger script.
-                            debug_cmd = spawn("node", [__dirname + "/node-inspector/bin/inspector.js", "--web-port=" + (debug_port ? debug_port : (port === 8888 ? "8000" : "8888"))]);
+                            debug_cmd = proc.spawn("node", [__dirname + "/node-inspector/bin/inspector.js", "--web-port=" + (debug_port ? debug_port : (port === 8888 ? "8000" : "8888"))]);
                             
                             debug_cmd.stdout.on("data", function (data)
                             {
@@ -209,17 +222,27 @@ http.createServer(function (request, response)
                             
                             debug_cmd.on("exit", function (code) {});
                         } else {
-                            cmd = spawn("node", [filename, JSON.stringify({GET: get_data, POST: post_data})]);
+                            cmd = proc.spawn("node", [filename, JSON.stringify({GET: get_data, POST: post_data})]);
                         }
                     }
                     
                     cmd.stdout.on("data", function (data)
                     {
-                        if (!has_written_head) {
+                        var header,
+                            unbuffered_data;
+                        
+                        if (waiting_for_headers) {
+                            unbuffered_data = data.toString();
+                            header = /.*?\r\n\r\n/.exec(unbuffered_data);
+                            
+                            console.log(header.input.substr(0, header.index));
                             response.writeHead(200, (typeof mime !== "undefined" ? {"Content-Type": mime} : {}));
-                            has_written_head = true;
+                            waiting_for_headers = false;
                         }
-                        response.write(data);
+                        
+                        if (!waiting_for_headers) {
+                            response.write(data);
+                        }
                     });
                     
                     cmd.stderr.on("data", function (data)
@@ -256,6 +279,13 @@ http.createServer(function (request, response)
         });
     }
     
+    if (request.headers.cookie) {
+        cookies = {};
+        request.headers.cookie.split(";").forEach(function(cookie) {
+            var parts = cookie.split("=");
+            cookies[parts[0].trim()] = (parts[1] || "").trim();
+        });
+    }
     
     /// Is there GET data?
     if (url_parsed.query !== "") {
