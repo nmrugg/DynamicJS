@@ -37,10 +37,10 @@ var fs    = require("fs"),
                     if (process.argv[i].slice(12) > 0) {
                         debug_port = process.argv[i].slice(12);
                     } else {
-                        console.log("Bad debugging port.");
+                        console.warn("Bad debugging port.");
                     }
                 } else {
-                    console.log("Warning: Unrecognized option '" + process.argv[i] + "'. Did you mean --debug-brk?");
+                    console.warn("Warning: Unrecognized option '" + process.argv[i] + "'. Did you mean --debug-brk?");
                 }
             } else {
                 debug = true;
@@ -53,10 +53,10 @@ var fs    = require("fs"),
                     if (process.argv[i].slice(8) > 0) {
                         debug_port = process.argv[i].slice(8);
                     } else {
-                        console.log("Bad debugging port.");
+                        console.warn("Bad debugging port.");
                     }
                 } else {
-                    console.log("Warning: Unrecognized option '" + process.argv[i] + "'. Did you mean --debug?");
+                    console.warn("Warning: Unrecognized option '" + process.argv[i] + "'. Did you mean --debug?");
                 }
             } else {
                 debug = true;
@@ -111,7 +111,7 @@ var fs    = require("fs"),
         } else if (path.existsSync(process.argv[i])) {
             dir = path.resolve(process.argv[i]);
         } else {
-            console.log("Warning: Unrecognized option '" + process.argv[i] + "'. See --help for acceptable options. Continuing blissfully.");
+            console.warn("Warning: Unrecognized option '" + process.argv[i] + "'. See --help for acceptable options. Continuing blissfully.");
         }
     }
 }());
@@ -128,11 +128,11 @@ if (php) {
 process.on("uncaughtException", function(e)
 {
     if (e.errno === 98) {
-        console.log("Error: Unable to create server because port " + port + " is already is use.");
+        console.error("Error: Unable to create server because port " + port + " is already is use.");
     } else if (e.errno === 13) {
-        console.log("Error: You do not have permission to open port " + port + ".\nTry a port above 1023 or running \"sudo !!\"");
+        console.error("Error: You do not have permission to open port " + port + ".\nTry a port above 1023 or running \"sudo !!\"");
     } else {
-        console.log("Error: " + e.message);
+        console.error("Error: " + e.message);
     }
     
     process.exit(1);
@@ -191,6 +191,7 @@ http.createServer(function (request, response)
                 {
                     var cmd,
                         debug_cmd,
+                        response_value = 200,
                         waiting_for_headers = true;
                     
                     if (php && path.extname(filename) === ".php") {
@@ -209,14 +210,14 @@ http.createServer(function (request, response)
                             debug_cmd.stdout.on("data", function (data)
                             {
                                 if (feedback) {
-                                    console.log(data.toString());
+                                    console.warn(data.toString());
                                 }
                             });
                             
                             debug_cmd.stderr.on("data", function (data)
                             {
                                 if (feedback) {
-                                    console.log(data.toString());
+                                    console.error(data.toString());
                                 }
                             });
                             
@@ -229,15 +230,39 @@ http.createServer(function (request, response)
                     cmd.stdout.on("data", function (data)
                     {
                         var header,
-                            unbuffered_data;
+                            header_obj = [],
+                            header_split,
+                            i;
                         
                         if (waiting_for_headers) {
-                            unbuffered_data = data.toString();
-                            header = /.*?\r\n\r\n/.exec(unbuffered_data);
+                            header = data.toString().split(/\r\n/g);
                             
-                            console.log(header.input.substr(0, header.index));
-                            response.writeHead(200, (typeof mime !== "undefined" ? {"Content-Type": mime} : {}));
-                            waiting_for_headers = false;
+                            while (header.length >= 1) {
+                                /// If reached the end of the header, go to body.
+                                if (header[0] === "") {
+                                    waiting_for_headers = false;
+                                    break;
+                                }
+                                
+                                header_split = header[0].split(/:/g);
+                                
+                                /// If this line does not look like a header, go to body.
+                                ///TODO: Look for HTTP/#.# ### VALUE
+                                if (header_split.length !== 2) {
+                                    waiting_for_headers = false;
+                                    break;
+                                }
+                                
+                                /// Must use an array, not an object, because there can be multiple cookies.
+                                header_obj[header_obj.length] = [header_split[0], header_split[1]];
+                                
+                                /// Shift the header so that we can use join() later.
+                                header.shift();
+                            };
+                            response.writeHead(response_value, header_obj);
+                            
+                            /// Combind the body into one string.
+                            data = header.join("");
                         }
                         
                         if (!waiting_for_headers) {
@@ -249,7 +274,7 @@ http.createServer(function (request, response)
                     {
                         /// Display any errors in the console.
                         if (feedback) {
-                            console.log(data.toString());
+                            console.error(data.toString());
                         }
                     });
                     
@@ -281,7 +306,7 @@ http.createServer(function (request, response)
     
     if (request.headers.cookie) {
         cookies = {};
-        request.headers.cookie.split(";").forEach(function(cookie) {
+        request.headers.cookie.split(";").forEach(function (cookie) {
             var parts = cookie.split("=");
             cookies[parts[0].trim()] = (parts[1] || "").trim();
         });
@@ -299,13 +324,13 @@ http.createServer(function (request, response)
     
         post_data = "";
         
-        request.on("data", function(chunk)
+        request.on("data", function (chunk)
         {
             /// Get the POST data.
             post_data += chunk.toString();
         });
         
-        request.on("end", function(chunk)
+        request.on("end", function (chunk)
         {
             ///NOTE: POST data can be retrieved in node.js scripts via the following code:
             ///      post_data = JSON.parse(process.argv[2]).POST;
