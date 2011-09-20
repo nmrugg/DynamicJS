@@ -244,13 +244,20 @@ http.createServer(function (request, response)
                                     break;
                                 }
                                 
-                                header_split = header[0].split(/:/g);
+                                ///TODO: Determine if this needs to be better.
+                                ///NOTE: Time stamps have colons, thus the space after the colon.
+                                header_split = header[0].split(/: /g);
                                 
                                 /// If this line does not look like a header, go to body.
                                 ///TODO: Look for HTTP/#.# ### VALUE
+                                ///TODO: Look for Status: 302 Moved Temporarily type things.
                                 if (header_split.length !== 2) {
                                     waiting_for_headers = false;
                                     break;
+                                }
+                                
+                                if (header_split[0] === "Status") {
+                                    response_value = parseInt(header_split[1]);
                                 }
                                 
                                 /// Must use an array, not an object, because there can be multiple cookies.
