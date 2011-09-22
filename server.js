@@ -155,7 +155,7 @@ http.createServer(function (request, response)
             if (fs.statSync(filename).isDirectory()) {
                 /// If the URL does not end in a slash, we need to add it and tell the browser to try again.
                 if (uri.slice(-1) !== "/") {
-                    response.writeHead(301, {"Location":uri + "/" + url_parsed.search});
+                    response.writeHead(301, {"Location":uri + "/" + (url_parsed.search || "")});
                     response.end();
                     return;
                 } else {
