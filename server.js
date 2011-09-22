@@ -216,7 +216,7 @@ http.createServer(function (request, response)
                     cmd.stdout.on("data", function (data)
                     {
                         if (!has_written_head) {
-                            response.writeHead(200, (typeof mime !== "undefined" ? {"Content-Type": mime} : {}));
+                            response.writeHead(200, (typeof mime !== "undefined" ? {"Content-Type": mime} : {"Content-Type": "text/html"}));
                             has_written_head = true;
                         }
                         response.write(data);
