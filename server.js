@@ -124,7 +124,7 @@ process.on("uncaughtException", function(e)
         console.log("Error: " + e.message);
     }
     
-    process.exit(1);
+    process.exit(e.errno);
 });
 
 /// Start the server.
